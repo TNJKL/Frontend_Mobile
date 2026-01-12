@@ -1,0 +1,35 @@
+name: duongcongphuoc_2280602494_fb
+description: "A new Flutter project."
+publish_to: 'none'
+version: 0.1.0
+
+environment:
+  sdk: ^3.10.0
+
+dependencies:
+  flutter:
+    sdk: flutter
+  http: ^1.1.0
+  carousel_slider: ^5.0.0
+  jwt_decoder: ^2.0.1
+  flutter_dotenv: ^6.0.0
+  shared_preferences: ^2.5.4
+  smart_auth: ^3.2.0
+  table_calendar: ^3.1.2
+  intl: ^0.19.0
+  flutter_colorpicker: ^1.0.3
+  google_sign_in: ^6.2.1
+  file_picker: ^10.3.8
+  url_launcher: ^6.2.5
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
+
+  # Assets
+  assets:
+    - .env
