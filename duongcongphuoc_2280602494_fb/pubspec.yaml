@@ -21,6 +21,7 @@ dependencies:
   google_sign_in: ^6.2.1
   file_picker: ^10.3.8
   url_launcher: ^6.2.5
+  signalr_netcore: ^1.1.2
 
 dev_dependencies:
   flutter_test:

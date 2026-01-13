@@ -14,6 +14,7 @@ import 'vendor_list_screen.dart';
 import 'event_vendor_screen.dart';
 import 'guest_management/guest_list_screen.dart';
 import 'service_package_selection_screen.dart';
+import 'transaction_history_screen.dart';
 
 class EventDetailScreen extends StatefulWidget {
   final Event event;
@@ -457,12 +458,27 @@ class _EventDetailScreenState extends State<EventDetailScreen> {
                               spacing: 12,
                               runSpacing: 12,
                               children: [
-                                _buildModuleShortcut(context, "Ngân sách", Icons.attach_money_rounded, Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetScreen(event: widget.event)))),
+                                _buildModuleShortcut(context, "Ngân sách", Icons.attach_money_rounded, Colors.green, () async {
+                                  await Navigator.push(context, MaterialPageRoute(builder: (_) => BudgetScreen(event: widget.event)));
+                                  _loadStats(); // Reload stats if needed
+                                }),
                                 _buildModuleShortcut(context, "Thực đơn", Icons.restaurant_menu_rounded, Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => MenuListScreen(event: widget.event)))),
-                                _buildModuleShortcut(context, "Công việc", Icons.assignment_turned_in_rounded, Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => TaskScreen(event: widget.event)))),
-                                _buildModuleShortcut(context, "Khách mời", Icons.people_rounded, Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => GuestListScreen(event: widget.event)))),
-                                _buildModuleShortcut(context, "Gói Dịch Vụ", Icons.inventory_2_rounded, Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (_) => ServicePackageSelectionScreen(eventId: widget.event.id!)))),
+                                _buildModuleShortcut(context, "Công việc", Icons.assignment_turned_in_rounded, Colors.blue, () async {
+                                  await Navigator.push(context, MaterialPageRoute(builder: (_) => TaskScreen(event: widget.event)));
+                                  _loadStats();
+                                }),
+                                _buildModuleShortcut(context, "Khách mời", Icons.people_rounded, Colors.purple, () async {
+                                  await Navigator.push(context, MaterialPageRoute(builder: (_) => GuestListScreen(event: widget.event)));
+                                  _loadStats();
+                                }),
+                                _buildModuleShortcut(context, "Gói Dịch Vụ", Icons.inventory_2_rounded, Colors.pink, () async {
+                                  final result = await Navigator.push(context, MaterialPageRoute(builder: (_) => ServicePackageSelectionScreen(eventId: widget.event.id!)));
+                                  if (result == true) {
+                                     if (mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Dữ liệu đã được cập nhật')));
+                                  }
+                                }),
                                 _buildModuleShortcut(context, "Nhà cung cấp", Icons.storefront_rounded, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventVendorScreen(event: widget.event)))),
+                                _buildModuleShortcut(context, "Lịch sử GD", Icons.history_edu_rounded, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const TransactionHistoryScreen()))),
                               ],
                             ),
                           ], // End Column children

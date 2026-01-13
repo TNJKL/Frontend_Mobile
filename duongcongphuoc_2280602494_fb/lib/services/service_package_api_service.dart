@@ -79,10 +79,10 @@ class ServicePackageApiService {
   }
 
   // POST: api/ServicePackage/Apply/{packageId}/ToEvent/{eventId}
-  static Future<void> applyPackageToEvent(int packageId, int eventId) async {
+  static Future<void> applyPackageToEvent(int packageId, int eventId, {int tableCount = 1}) async {
     final headers = await _buildHeaders();
     final res = await http.post(
-      Uri.parse('$baseUrl/ServicePackage/Apply/$packageId/ToEvent/$eventId'),
+      Uri.parse('$baseUrl/ServicePackage/Apply/$packageId/ToEvent/$eventId?tableCount=$tableCount'),
       headers: headers,
     );
     if (res.statusCode == 200) return;

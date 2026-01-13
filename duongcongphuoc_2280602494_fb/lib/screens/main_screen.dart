@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'dart:async';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:carousel_slider/carousel_slider.dart';
 import 'package:intl/intl.dart';
@@ -15,9 +16,13 @@ import 'event_vendor_screen.dart';
 import 'menu_list_screen.dart';
 import 'timeline_screen.dart';
 import 'guest_management/guest_list_screen.dart';
+import 'transaction_history_screen.dart';
 
 import '../Models/event.dart';
 import '../services/event_api_service.dart';
+import '../services/chat_service.dart';
+import 'chat_screen.dart';
+import 'admin_conversation_list_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -29,6 +34,9 @@ class MainScreen extends StatefulWidget {
 class _MainScreenState extends State<MainScreen> {
   Future<List<Event>>? _eventsFuture;
   Event? _activeEvent;
+  String _userRole = 'User';
+  final ChatService _chatService = ChatService();
+  bool _isConnectingChat = false;
 
   // Sample banner data
   final List<String> imgList = [
@@ -38,10 +46,100 @@ class _MainScreenState extends State<MainScreen> {
     'https://hotelnikkosaigon.com.vn/images/upload/230518/1684351567_0045.jpg',
   ];
 
+  late StreamSubscription _messageSubscription;
+
   @override
   void initState() {
     super.initState();
     _refreshEvents();
+    _loadRole();
+    _initChatListener();
+  }
+
+  void _initChatListener() async {
+    await _chatService.initConnection();
+    _messageSubscription = _chatService.messageStream.listen((data) {
+       if (!_chatService.isInChatScreen) {
+          if (mounted) {
+            _showNotification(data['content']);
+          }
+       }
+    });
+  }
+
+  void _showNotification(String content) {
+    late OverlayEntry entry;
+    entry = OverlayEntry(
+      builder: (context) => Positioned(
+        top: 60,
+        left: 20,
+        right: 20,
+        child: Material(
+          color: Colors.transparent,
+          child: Container(
+            padding: const EdgeInsets.all(16),
+            decoration: BoxDecoration(
+              gradient: LinearGradient(colors: [Colors.pink[400]!, Colors.orangeAccent]),
+              borderRadius: BorderRadius.circular(20),
+              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 15, offset: const Offset(0, 5))],
+              border: Border.all(color: Colors.white.withOpacity(0.5), width: 1)
+            ),
+            child: Row(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: const Icon(Icons.mark_chat_unread_rounded, color: Colors.pink, size: 24),
+                ),
+                const SizedBox(width: 16),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text("Tin nhắn mới!", style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold, fontSize: 16, shadows: [Shadow(blurRadius: 2, color: Colors.black26, offset: Offset(0,1))])),
+                      const SizedBox(height: 4),
+                      Text(content, style: const TextStyle(color: Colors.white, fontSize: 13, height: 1.2), maxLines: 2, overflow: TextOverflow.ellipsis),
+                    ],
+                  ),
+                ),
+                GestureDetector(
+                   onTap: () => entry.remove(),
+                   child: const Icon(Icons.close, color: Colors.white, size: 20)
+                )
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    Overlay.of(context).insert(entry);
+    Future.delayed(const Duration(seconds: 4), () {
+        if (entry.mounted) entry.remove();
+    });
+  }
+
+  Future<void> _loadRole() async {
+    SharedPreferences prefs = await SharedPreferences.getInstance();
+    setState(() {
+      _userRole = prefs.getString('user_role') ?? 'User';
+    });
+  }
+
+  Future<void> _openChatWithSupport() async {
+    if (_isConnectingChat) return;
+    setState(() => _isConnectingChat = true);
+    
+    final supportInfo = await _chatService.getSupportInfo();
+    setState(() => _isConnectingChat = false);
+
+    if (supportInfo != null && mounted) {
+      Navigator.push(context, MaterialPageRoute(builder: (_) => 
+        ChatScreen(receiverId: supportInfo['supportId']!, receiverName: supportInfo['supportName']!)
+      ));
+    } else if (mounted) {
+       ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Hiện chưa có nhân viên hỗ trợ nào online.')));
+    }
   }
 
   void _refreshEvents() {
@@ -51,6 +149,7 @@ class _MainScreenState extends State<MainScreen> {
   }
 
   Future<void> _logout(BuildContext context) async {
+    _messageSubscription.cancel();
     SharedPreferences prefs = await SharedPreferences.getInstance();
     await prefs.remove('jwt_token');
     await prefs.remove('user_role');
@@ -105,9 +204,22 @@ class _MainScreenState extends State<MainScreen> {
           ],
         ),
         actions: [
+          if (_userRole != 'User') // Staff & Admin see Inbox
+            IconButton(
+              icon: const Icon(Icons.mark_chat_unread, color: Colors.pinkAccent), 
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminConversationListScreen()))
+            ),
           IconButton(icon: const Icon(Icons.logout, color: Colors.black54), onPressed: () => _logout(context)),
         ],
       ),
+      floatingActionButton: _userRole == 'User' ? FloatingActionButton.extended(
+        onPressed: _openChatWithSupport,
+        backgroundColor: Colors.pink[400],
+        icon: _isConnectingChat 
+           ? Container(width: 24, height: 24, padding: const EdgeInsets.all(2), child: const CircularProgressIndicator(color: Colors.white, strokeWidth: 2)) 
+           : const Icon(Icons.support_agent),
+        label: const Text("Hỗ trợ"),
+      ) : null,
       body: FutureBuilder<List<Event>>(
         future: _eventsFuture,
         builder: (context, snapshot) {
@@ -204,6 +316,7 @@ class _MainScreenState extends State<MainScreen> {
                       _buildCategoryItem('Dịch vụ', Icons.storefront, Colors.purple, () => _navigateToModule((e) => EventVendorScreen(event: e))),
                       _buildCategoryItem('Thực đơn', Icons.restaurant_menu, Colors.redAccent, () => _navigateToModule((e) => MenuListScreen(event: e))),
                       _buildCategoryItem('Kịch bản', Icons.access_time_filled_rounded, Colors.teal, () => _navigateToModule((e) => TimelineScreen(event: e))),
+                       _buildCategoryItem('Lịch sử GD', Icons.history_edu, Colors.blueGrey, () => _navigateToModule((e) => const TransactionHistoryScreen())),
                     ],
                   ),
                 ),

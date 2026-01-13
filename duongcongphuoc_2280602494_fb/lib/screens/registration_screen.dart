@@ -36,6 +36,11 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
     _animationController.forward();
   }
 
+  final TextEditingController _otpController = TextEditingController();
+  final TextEditingController _phoneController = TextEditingController();
+  bool _otpSent = false;
+  int _countdown = 0;
+
   @override
   void dispose() {
     _animationController.dispose();
@@ -43,11 +48,58 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
     _emailController.dispose();
     _passwordController.dispose();
     _initialsController.dispose();
+    _phoneController.dispose();
+    _otpController.dispose();
     super.dispose();
+  }
+
+  Future<void> _sendOTP() async {
+    if (_phoneController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập số điện thoại')));
+      return;
+    }
+
+    setState(() => _isLoading = true);
+
+    final result = await Auth.sendOTP(_phoneController.text.trim());
+
+    setState(() => _isLoading = false);
+
+    if (result['success'] == true) {
+      setState(() {
+        _otpSent = true;
+        _countdown = 60;
+      });
+      _startCountdown();
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('OTP đã được gửi thành công!'), backgroundColor: Colors.green));
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(result['message'] ?? 'Không thể gửi OTP'), backgroundColor: Colors.red));
+    }
+  }
+
+  void _startCountdown() {
+    Future.delayed(const Duration(seconds: 1), () {
+      if (mounted && _countdown > 0) {
+        setState(() {
+          _countdown--;
+        });
+        _startCountdown();
+      } else if (mounted) {
+        setState(() {
+          // _otpSent = false; // Optional: Force resend after timeout? Or just let them hit resend if implemented.
+        });
+      }
+    });
   }
 
   Future<void> _handleRegister() async {
     if (!_formKey.currentState!.validate()) return;
+    
+    if (!_otpSent || _otpController.text.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Vui lòng nhập và gửi OTP trước')));
+      return;
+    }
+
     setState(() => _isLoading = true);
 
     Map<String, dynamic> result = await Auth.register(
@@ -56,6 +108,8 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
       password: _passwordController.text,
       initials: _initialsController.text.trim(),
       role: _selectedRole,
+      phone: _phoneController.text.trim(),
+      otp: _otpController.text.trim(),
     );
 
     setState(() => _isLoading = false);
@@ -157,6 +211,32 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
                             const SizedBox(height: 16),
                             _buildTextField(_passwordController, 'Mật khẩu', Icons.lock_outline, isPassword: true),
                             const SizedBox(height: 16),
+                            
+                            // Phone and OTP Section
+                            _buildTextField(_phoneController, 'Số điện thoại', Icons.phone_android_rounded),
+                            const SizedBox(height: 16),
+                            Row(
+                                children: [
+                                  Expanded(
+                                    child: _buildTextField(_otpController, 'Mã OTP', Icons.security_rounded),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  ElevatedButton(
+                                    onPressed: _isLoading || _countdown > 0 ? null : _sendOTP,
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.blue,
+                                      foregroundColor: Colors.white,
+                                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16), // Match height roughly
+                                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)), 
+                                    ),
+                                    child: _countdown > 0
+                                        ? Text('$_countdown s')
+                                        : const Text('Gửi OTP'),
+                                  ),
+                                ],
+                              ),
+                             const SizedBox(height: 16),
+
                             Row(
                               children: [
                                 Expanded(child: _buildTextField(_initialsController, 'Tên viết tắt (VD: TD)', Icons.badge_outlined)),
@@ -247,6 +327,10 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
       validator: (value) {
         if (value == null || value.isEmpty) return 'Vui lòng nhập $label';
         if (isPassword && value.length < 6) return 'Mật khẩu phải > 6 ký tự';
+        // Basic phone validation if it's the phone controller
+        if (controller == _phoneController && (value.length < 9 || int.tryParse(value) == null)) {
+             return 'Số điện thoại không hợp lệ';
+        }
         return null;
       },
     );

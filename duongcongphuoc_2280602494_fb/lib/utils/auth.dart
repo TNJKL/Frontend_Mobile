@@ -26,6 +26,8 @@ class Auth {
     required String password,
     required String initials,
     required String role,
+    required String phone,
+    required String otp,
   }) async {
     // Tạo body để gửi lên API
     Map<String, dynamic> body = {
@@ -34,6 +36,8 @@ class Auth {
       "password": password,
       "initials": initials,
       "role": role,
+      "phone": phone,
+      "otp": otp,
     };
 
     // Gọi API đăng ký thông qua ApiClient
@@ -44,11 +48,35 @@ class Auth {
       if (response.statusCode == 200) {
         // Chuyển đổi body JSON từ API thành Map
         var result = jsonDecode(response.body);
-        return result;
+        return {'success': result['status'] ?? result['success'], 'message': result['message']};
       } else {
+        var result = jsonDecode(response.body);
         return {
           'success': false,
-          'message': 'Đăng ký thất bại, vui lòng thử lại.'
+          'message': result['message'] ?? 'Đăng ký thất bại, vui lòng thử lại.'
+        };
+      }
+    } catch (e) {
+      return {
+        'success': false,
+        'message': 'Lỗi kết nối: ${e.toString()}'
+      };
+    }
+  }
+
+  // Gửi OTP
+  static Future<Map<String, dynamic>> sendOTP(String phone) async {
+    try {
+      var response = await _apiClient.post('/Authenticate/send-otp', body: {'phone': phone});
+      
+      if (response.statusCode == 200) {
+        var result = jsonDecode(response.body);
+         return {'success': result['status'] ?? result['success'], 'message': result['message']};
+      } else {
+         var result = jsonDecode(response.body);
+        return {
+          'success': false,
+          'message': result['message'] ?? 'Gửi OTP thất bại'
         };
       }
     } catch (e) {

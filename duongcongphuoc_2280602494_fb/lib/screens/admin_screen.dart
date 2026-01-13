@@ -9,6 +9,10 @@ import 'admin_menu_management_screen.dart';
 import 'vendor_list_screen.dart';
 import 'admin_timeline_selection_screen.dart';
 import 'admin_service_package_management_screen.dart';
+import 'admin_transaction_history_screen.dart';
+import 'admin_conversation_list_screen.dart';
+import 'package:intl/intl.dart'; // For formatting currency
+import '../services/admin_service.dart';
 
 class AdminScreen extends StatefulWidget {
   const AdminScreen({super.key});
@@ -20,11 +24,38 @@ class AdminScreen extends StatefulWidget {
 class _AdminScreenState extends State<AdminScreen> {
   String _userRole = 'Admin';
   String _username = '';
+  final AdminService _adminService = AdminService();
+  
+  // Dashboard Stats
+  int _totalEvents = 0;
+  int _totalUsers = 0;
+  int _upcomingEvents = 0;
+  int _pendingApprovals = 0;
+  int _totalVendors = 0;
+  double _totalRevenue = 0;
+  bool _isLoadingStats = true;
 
   @override
   void initState() {
     super.initState();
     _loadUserInfo();
+    _loadStats();
+  }
+
+  Future<void> _loadStats() async {
+    final stats = await _adminService.getDashboardStats();
+    if (mounted) {
+      setState(() {
+        _totalEvents = stats['totalEvents'] ?? 0;
+        _totalUsers = stats['totalUsers'] ?? 0;
+        _upcomingEvents = stats['upcomingEvents'] ?? 0;
+        _pendingApprovals = stats['pendingApprovals'] ?? 0;
+        _totalVendors = stats['totalVendors'] ?? 0;
+        // Ensure revenue is treated as double even if int returns
+        _totalRevenue = (stats['totalRevenue'] ?? 0).toDouble();
+        _isLoadingStats = false;
+      });
+    }
   }
 
   Future<void> _loadUserInfo() async {
@@ -119,17 +150,53 @@ class _AdminScreenState extends State<AdminScreen> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Dashboard Summary Cards (Mockup)
+                  // Dashboard Summary Cards (Real Data)
                   if (!isStaff)
                     SingleChildScrollView(
                       scrollDirection: Axis.horizontal,
                       child: Row(
                         children: [
-                          _buildSummaryCard('Tổng sự kiện', '12', Colors.blue, Icons.event),
+                          _buildSummaryCard(
+                            'Tổng sự kiện', 
+                            _isLoadingStats ? '...' : '$_totalEvents', 
+                            Colors.blue, 
+                            Icons.event
+                          ),
                           const SizedBox(width: 12),
-                          _buildSummaryCard('Duyệt giá', '3', Colors.orange, Icons.pending_actions),
+                          _buildSummaryCard(
+                            'Doanh thu', 
+                            _isLoadingStats ? '...' : '${NumberFormat.compact(locale: 'vi').format(_totalRevenue)}', 
+                            Colors.green, 
+                            Icons.attach_money
+                          ),
                           const SizedBox(width: 12),
-                          _buildSummaryCard('Doanh thu', '32.5tr', Colors.green, Icons.attach_money),
+                          _buildSummaryCard(
+                            'Thành viên', 
+                            _isLoadingStats ? '...' : '$_totalUsers', 
+                            Colors.purple, 
+                            Icons.people
+                          ),
+                          const SizedBox(width: 12),
+                          _buildSummaryCard(
+                            'Đối tác', 
+                            _isLoadingStats ? '...' : '$_totalVendors', 
+                            Colors.teal, 
+                            Icons.store
+                          ),
+                          const SizedBox(width: 12),
+                          _buildSummaryCard(
+                            'Duyệt giá', 
+                            _isLoadingStats ? '...' : '$_pendingApprovals', 
+                            Colors.redAccent, 
+                            Icons.gavel
+                          ),
+                          const SizedBox(width: 12),
+                          _buildSummaryCard(
+                            'Sắp tới (30d)', 
+                            _isLoadingStats ? '...' : '$_upcomingEvents', 
+                            Colors.orange, 
+                            Icons.timer
+                          ),
                         ],
                       ),
                     ),
@@ -143,12 +210,13 @@ class _AdminScreenState extends State<AdminScreen> {
                     crossAxisCount: 2,
                     crossAxisSpacing: 16,
                     mainAxisSpacing: 16,
-                    childAspectRatio: 1.3,
+                    childAspectRatio: 1.1, // Adjusted to prevent overflow
                     children: [
                       _buildMenuCard(context, 'QL Sự Kiện', 'Danh sách tiệc', Icons.calendar_month, Colors.blue, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EventListScreen()))),
                       _buildMenuCard(context, 'Duyệt Kịch Bản', 'Timeline tiệc', Icons.view_timeline, Colors.orange, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminTimelineSelectionScreen()))),
                       _buildMenuCard(context, 'Thực Đơn', 'Món ăn & Menu', Icons.restaurant_menu, Colors.redAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminMenuManagementScreen()))),
                       _buildMenuCard(context, 'Đối Tác', 'Nhà cung cấp', Icons.storefront, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VendorListScreen(isSelecting: false)))),
+                      _buildMenuCard(context, 'Hỗ Trợ Online', 'Tin nhắn khách hàng', Icons.chat_bubble, Colors.blueAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminConversationListScreen()))),
                     ],
                   ),
 
@@ -162,11 +230,12 @@ class _AdminScreenState extends State<AdminScreen> {
                       crossAxisCount: 2,
                       crossAxisSpacing: 16,
                       mainAxisSpacing: 16,
-                      childAspectRatio: 1.3,
+                      childAspectRatio: 1.1,
                       children: [
                         _buildMenuCard(context, 'Gói Dịch Vụ', 'Combo trọn gói', Icons.inventory_2, Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminServicePackageManagementScreen()))),
                          _buildMenuCard(context, 'Danh Mục Event', 'Loại hình tiệc', Icons.category, Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EventCategoryManagementScreen()))),
                         _buildMenuCard(context, 'Người Dùng', 'Tài khoản', Icons.people, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserManagementScreen()))),
+                        _buildMenuCard(context, 'Doanh Thu', 'Lịch sử & Thống kê', Icons.bar_chart, Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminTransactionHistoryScreen()))),
                       ],
                     ),
                   ],

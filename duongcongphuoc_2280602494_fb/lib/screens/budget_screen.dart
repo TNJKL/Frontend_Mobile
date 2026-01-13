@@ -5,6 +5,8 @@ import '../Models/event.dart';
 import '../services/budget_api_service.dart';
 import 'budget_form_screen.dart';
 import 'expense_form_screen.dart';
+import '../services/payment_service.dart';
+import 'package:url_launcher/url_launcher.dart';
 
 class BudgetScreen extends StatefulWidget {
   final Event event;
@@ -81,6 +83,112 @@ class _BudgetScreenState extends State<BudgetScreen> {
           );
         }
       }
+    }
+  }
+
+  Future<void> _handlePayment(double amount) async {
+    setState(() => _isLoading = true);
+    try {
+      final paymentService = PaymentService();
+      
+      // Determine Customer Name
+      String customerName = 'Khách hàng';
+      if (widget.event.brideName != null && widget.event.brideName!.isNotEmpty) {
+        customerName = widget.event.brideName!;
+        if (widget.event.groomName != null && widget.event.groomName!.isNotEmpty) {
+          customerName += ' & ${widget.event.groomName}';
+        }
+      } else if (widget.event.groomName != null && widget.event.groomName!.isNotEmpty) {
+        customerName = widget.event.groomName!;
+      } else if (widget.event.creatorName != null) {
+        customerName = widget.event.creatorName!;
+      }
+
+      final result = await paymentService.createPaymentUrl(
+        amount, 
+        customerName: customerName,
+        orderDescription: 'Thanh toán ngân sách sự kiện: ${widget.event.title ?? "Không tên"}'
+      );
+      
+      setState(() => _isLoading = false);
+
+      if (result != null && result['url'] != null) {
+        final url = result['url'];
+        final txnRef = result['txnRef'];
+        final uri = Uri.parse(url);
+
+        if (await canLaunchUrl(uri)) {
+          await launchUrl(uri, mode: LaunchMode.externalApplication);
+          
+          if (txnRef != null) {
+            _waitForPaymentResult(txnRef);
+          }
+        } else {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Không thể mở liên kết thanh toán')));
+        }
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Lỗi tạo liên kết thanh toán')));
+      }
+    } catch (e) {
+      setState(() => _isLoading = false);
+      ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Lỗi: $e')));
+    }
+  }
+
+  Future<void> _waitForPaymentResult(String txnRef) async {
+    showDialog(
+      context: context,
+      barrierDismissible: false,
+      builder: (context) => AlertDialog(
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const CircularProgressIndicator(),
+            const SizedBox(height: 16),
+            const Text('Đang đợi xác nhận thanh toán...'),
+            TextButton(
+              onPressed: () => Navigator.pop(context), 
+              child: const Text('Đóng (Xử lý sau)'),
+            )
+          ],
+        ),
+      ),
+    );
+
+    final paymentService = PaymentService();
+    // Poll for 2 minutes (approx 40 attempts)
+    for (int i = 0; i < 40; i++) {
+      await Future.delayed(const Duration(seconds: 3));
+      if (!mounted) break;
+      
+      final status = await paymentService.checkPaymentStatus(txnRef);
+      if (status == 'Success') {
+        if (mounted) {
+           Navigator.pop(context); // Close loading dialog
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(
+               content: Text('Thanh toán thành công!'), 
+               backgroundColor: Colors.green,
+               behavior: SnackBarBehavior.floating,
+             )
+           );
+           _loadBudgets(); // Refresh data/UI
+        }
+        return;
+      } else if (status == 'Failed') {
+         if (mounted) {
+           Navigator.pop(context);
+           ScaffoldMessenger.of(context).showSnackBar(
+             const SnackBar(content: Text('Thanh toán thất bại'), backgroundColor: Colors.red)
+           );
+         }
+         return;
+      }
+    }
+    
+    // Timeout
+    if (mounted && Navigator.canPop(context)) {
+       Navigator.pop(context);
     }
   }
 
@@ -178,6 +286,29 @@ class _BudgetScreenState extends State<BudgetScreen> {
                             ),
                           ],
                         ),
+                      ),
+                    ),
+                    const SizedBox(height: 16),
+                    // Payment Button
+                    Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      child: ElevatedButton.icon(
+                        icon: const Icon(Icons.payment, color: Colors.white),
+                        label: const Text('Thanh toán VNPay', style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold)),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: Colors.blue[700],
+                          foregroundColor: Colors.white,
+                          padding: const EdgeInsets.symmetric(vertical: 12),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                        ),
+                        onPressed: () async {
+                           if (totalActual <= 0) {
+                              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Chưa có khoản chi nào để thanh toán')));
+                              return;
+                           }
+                           _handlePayment(totalActual);
+                        },
                       ),
                     ),
                     const SizedBox(height: 24),

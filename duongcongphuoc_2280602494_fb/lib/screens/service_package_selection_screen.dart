@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../Models/service_package.dart';
 import '../services/service_package_api_service.dart';
 import 'package:intl/intl.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 class ServicePackageSelectionScreen extends StatefulWidget {
   final int eventId;
@@ -36,11 +37,15 @@ class _ServicePackageSelectionScreenState extends State<ServicePackageSelectionS
   }
 
   Future<void> _applyPackage(ServicePackage pkg) async {
+    // 1. Get Table Count
+    final prefs = await SharedPreferences.getInstance();
+    int tableCount = prefs.getInt('table_count_${widget.eventId}') ?? 1;
+
     final confirm = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: Text('Chọn gói ${pkg.name}?'),
-        content: const Text('Các dịch vụ và món ăn trong gói sẽ được thêm vào ngân sách và danh sách chi tiêu của sự kiện. Bạn có thể chỉnh sửa chúng sau.'),
+        content: Text('Hệ thống sẽ áp dụng gói này cho $tableCount bàn.\n(Giá Food x $tableCount + Giá Dịch vụ)\n\nBạn có thể chỉnh số bàn trong phần Thực Đơn.'),
         actions: [
           TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Hủy')),
           TextButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Đồng ý')),
@@ -52,7 +57,7 @@ class _ServicePackageSelectionScreenState extends State<ServicePackageSelectionS
 
     setState(() => _isLoading = true);
     try {
-      await ServicePackageApiService.applyPackageToEvent(pkg.id, widget.eventId);
+      await ServicePackageApiService.applyPackageToEvent(pkg.id, widget.eventId, tableCount: tableCount);
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text('Đã áp dụng gói thành công!')));
         Navigator.pop(context, true); // Return true to indicate change
