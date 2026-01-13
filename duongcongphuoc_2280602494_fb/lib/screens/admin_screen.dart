@@ -11,6 +11,7 @@ import 'admin_timeline_selection_screen.dart';
 import 'admin_service_package_management_screen.dart';
 import 'admin_transaction_history_screen.dart';
 import 'admin_conversation_list_screen.dart';
+import 'guest_management/qr_scan_screen.dart';
 import 'package:intl/intl.dart'; // For formatting currency
 import '../services/admin_service.dart';
 
@@ -217,6 +218,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       _buildMenuCard(context, 'Thực Đơn', 'Món ăn & Menu', Icons.restaurant_menu, Colors.redAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminMenuManagementScreen()))),
                       _buildMenuCard(context, 'Đối Tác', 'Nhà cung cấp', Icons.storefront, Colors.indigo, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const VendorListScreen(isSelecting: false)))),
                       _buildMenuCard(context, 'Hỗ Trợ Online', 'Tin nhắn khách hàng', Icons.chat_bubble, Colors.blueAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminConversationListScreen()))),
+                      _buildMenuCard(context, 'Check-in Vé', 'Quét mã QR', Icons.qr_code_scanner, Colors.deepPurpleAccent, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QRScanScreen()))),
                     ],
                   ),
 
@@ -233,7 +235,7 @@ class _AdminScreenState extends State<AdminScreen> {
                       childAspectRatio: 1.1,
                       children: [
                         _buildMenuCard(context, 'Gói Dịch Vụ', 'Combo trọn gói', Icons.inventory_2, Colors.pink, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminServicePackageManagementScreen()))),
-                         _buildMenuCard(context, 'Danh Mục Event', 'Loại hình tiệc', Icons.category, Colors.purple, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const EventCategoryManagementScreen()))),
+
                         _buildMenuCard(context, 'Người Dùng', 'Tài khoản', Icons.people, Colors.teal, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const UserManagementScreen()))),
                         _buildMenuCard(context, 'Doanh Thu', 'Lịch sử & Thống kê', Icons.bar_chart, Colors.green, () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminTransactionHistoryScreen()))),
                       ],

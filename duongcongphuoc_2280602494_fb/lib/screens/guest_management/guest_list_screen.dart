@@ -1,6 +1,13 @@
 import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:url_launcher/url_launcher.dart';
+import '../../Models/event.dart';
+import '../../Models/guest.dart';
+import '../../services/guest_api_service.dart';
+import 'seating_chart_screen.dart';
+import 'guest_qr_screen.dart';
+import 'package:file_picker/file_picker.dart';
 import 'package:url_launcher/url_launcher.dart'; // For calls
 import '../../Models/event.dart';
 import '../../Models/guest.dart';
@@ -21,6 +28,7 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
   List<Guest> _guests = [];
   bool _isLoading = true;
   late TabController _tabController;
+  String _filterStatus = 'Tất cả'; // Status filter state
 
   @override
   void initState() {
@@ -103,12 +111,22 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
   }
 
   List<Guest> _getFilteredGuests(int tabIndex) {
-    if (tabIndex == 0) return _guests;
-    if (tabIndex == 1) return _guests.where((g) => g.guestType == 'Nhà Trai').toList();
-    if (tabIndex == 2) return _guests.where((g) => g.guestType == 'Nhà Gái').toList();
-    if (tabIndex == 3) return _guests.where((g) => g.guestType == 'Bạn Bè').toList();
-    if (tabIndex == 4) return _guests.where((g) => g.guestType == 'Đồng Nghiệp').toList();
-    return _guests.where((g) => g.guestType == 'Khác').toList();
+    // 1. Filter by Type (Tab)
+    List<Guest> filteredList = _guests;
+    if (tabIndex == 1) filteredList = _guests.where((g) => g.guestType == 'Nhà Trai').toList();
+    else if (tabIndex == 2) filteredList = _guests.where((g) => g.guestType == 'Nhà Gái').toList();
+    else if (tabIndex == 3) filteredList = _guests.where((g) => g.guestType == 'Bạn Bè').toList();
+    else if (tabIndex == 4) filteredList = _guests.where((g) => g.guestType == 'Đồng Nghiệp').toList();
+    else if (tabIndex == 5) filteredList = _guests.where((g) => g.guestType == 'Khác').toList();
+
+    // 2. Filter by Status (Chip)
+    if (_filterStatus == 'Đã đến') {
+      filteredList = filteredList.where((g) => g.rsvpStatus == 'Attended').toList();
+    } else if (_filterStatus == 'Chưa đến') {
+      filteredList = filteredList.where((g) => g.rsvpStatus != 'Attended').toList();
+    }
+
+    return filteredList;
   }
 
   Color _getTypeColor(String type) {
@@ -185,121 +203,185 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
             color: Colors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
           ),
-          child: _isLoading 
-              ? const Center(child: CircularProgressIndicator())
-              : TabBarView(
-                  controller: _tabController,
-                  children: List.generate(6, (index) {
-                    final list = _getFilteredGuests(index);
-                    if (list.isEmpty) {
-                      return Center(
-                        child: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
-                            const SizedBox(height: 16),
-                            Text('Chưa có khách nào trong nhóm này', style: TextStyle(color: Colors.grey[500])),
-                          ],
-                        ),
-                      );
-                    }
-                    
-                    return ListView.builder(
-                      padding: const EdgeInsets.all(16),
-                      itemCount: list.length,
-                      itemBuilder: (context, i) {
-                        final guest = list[i];
-                        final typeColor = _getTypeColor(guest.guestType);
+          child: Column(
+            children: [
+              // Dashboard Stats
+              if (!_isLoading)
+                Container(
+                  margin: const EdgeInsets.all(16),
+                  padding: const EdgeInsets.all(16),
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(colors: [Colors.blue[50]!, Colors.blue[100]!]),
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(color: Colors.blue[200]!)
+                  ),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _buildStatItem("Tổng khách", "${_guests.length}", Colors.blue),
+                      Container(width: 1, height: 40, color: Colors.blue[200]),
+                      _buildStatItem("Đã đến", "${_guests.where((g) => g.rsvpStatus == 'Attended').length}", Colors.green),
+                      Container(width: 1, height: 40, color: Colors.blue[200]),
+                      _buildStatItem("Chưa đến", "${_guests.length - _guests.where((g) => g.rsvpStatus == 'Attended').length}", Colors.orange),
+                    ],
+                  ),
+                ),
+                
+              // Filter Chips
+              Container(
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      _buildFilterChip("Tất cả"),
+                      const SizedBox(width: 8),
+                      _buildFilterChip("Đã đến"),
+                      const SizedBox(width: 8),
+                      _buildFilterChip("Chưa đến"),
+                    ],
+                  ),
+                ),
+              ),
+
+              Expanded(
+                child: _isLoading 
+                  ? const Center(child: CircularProgressIndicator())
+                  : TabBarView(
+                      controller: _tabController,
+                      children: List.generate(6, (index) {
+                        final list = _getFilteredGuests(index);
+                        if (list.isEmpty) {
+                          return Center(
+                            child: Column(
+                              mainAxisAlignment: MainAxisAlignment.center,
+                              children: [
+                                Icon(Icons.people_outline, size: 64, color: Colors.grey[300]),
+                                const SizedBox(height: 16),
+                                Text('Chưa có khách nào trong nhóm này', style: TextStyle(color: Colors.grey[500])),
+                              ],
+                            ),
+                          );
+                        }
                         
-                        return Container(
-                          margin: const EdgeInsets.only(bottom: 12),
-                          decoration: BoxDecoration(
-                            color: Colors.white,
-                            borderRadius: BorderRadius.circular(16),
-                            boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))
-                            ],
-                            border: Border.all(color: Colors.grey[100]!)
-                          ),
-                          child: InkWell(
-                            onTap: () {}, // Can add detail view later
-                            borderRadius: BorderRadius.circular(16),
-                            child: Padding(
-                              padding: const EdgeInsets.all(12),
-                              child: Row(
-                                children: [
-                                  CircleAvatar(
-                                    radius: 24,
-                                    backgroundColor: typeColor.withOpacity(0.1),
-                                    child: Text(
-                                      guest.fullName.isNotEmpty ? guest.fullName[0].toUpperCase() : '?',
-                                      style: TextStyle(color: typeColor, fontWeight: FontWeight.bold, fontSize: 18),
-                                    ),
-                                  ),
-                                  const SizedBox(width: 16),
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(guest.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
-                                        const SizedBox(height: 4),
-                                        Row(
-                                          children: [
-                                            Container(
-                                              padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                                              decoration: BoxDecoration(
-                                                color: typeColor.withOpacity(0.1),
-                                                borderRadius: BorderRadius.circular(4),
-                                              ),
-                                              child: Text(guest.guestType, style: TextStyle(fontSize: 10, color: typeColor, fontWeight: FontWeight.bold)),
-                                            ),
-                                            const SizedBox(width: 8),
-                                            if (guest.tableNumber != null) 
-                                              Text('•  Bàn ${guest.tableNumber}', style: TextStyle(color: Colors.grey[600], fontSize: 13))
-                                            else
-                                              Text('•  Chưa xếp bàn', style: TextStyle(color: Colors.grey[400], fontSize: 13, fontStyle: FontStyle.italic)),
-                                          ],
-                                        ),
-                                        if (guest.phone != null && guest.phone!.isNotEmpty) ...[
-                                           const SizedBox(height: 4),
-                                           Row(
-                                             children: [
-                                               Icon(Icons.phone, size: 12, color: Colors.grey[500]),
-                                               const SizedBox(width: 4),
-                                               Text(guest.phone!, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
-                                             ],
-                                           )
-                                        ]
-                                      ],
-                                    ),
-                                  ),
-                                  Row(
-                                    mainAxisSize: MainAxisSize.min,
-                                    children: [
-                                      if (guest.phone != null && guest.phone!.isNotEmpty)
-                                        IconButton(
-                                          icon: const Icon(Icons.call, color: Colors.green),
-                                          onPressed: () => _makePhoneCall(guest.phone!),
-                                          visualDensity: VisualDensity.compact,
-                                        ),
-                                      IconButton(
-                                        icon: Icon(Icons.delete_outline, color: Colors.red[300]),
-                                        onPressed: () => _deleteGuest(guest.id),
-                                        visualDensity: VisualDensity.compact,
+                        return RefreshIndicator(
+                      onRefresh: _loadGuests,
+                      child: ListView.builder(
+                        padding: const EdgeInsets.all(16),
+                        itemCount: list.length,
+                        itemBuilder: (context, i) {
+                          final guest = list[i];
+                          final typeColor = _getTypeColor(guest.guestType);
+                          
+                          return Container(
+                            margin: const EdgeInsets.only(bottom: 12),
+                            decoration: BoxDecoration(
+                              color: Colors.white,
+                              borderRadius: BorderRadius.circular(16),
+                              boxShadow: [
+                                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 8, offset: const Offset(0, 2))
+                              ],
+                              border: Border.all(color: Colors.grey[100]!)
+                            ),
+                            child: InkWell(
+                              onTap: () {}, // Can add detail view later
+                              borderRadius: BorderRadius.circular(16),
+                              child: Padding(
+                                padding: const EdgeInsets.all(12),
+                                child: Row(
+                                  children: [
+                                    CircleAvatar(
+                                      radius: 24,
+                                      backgroundColor: typeColor.withOpacity(0.1),
+                                      child: Text(
+                                        guest.fullName.isNotEmpty ? guest.fullName[0].toUpperCase() : '?',
+                                        style: TextStyle(color: typeColor, fontWeight: FontWeight.bold, fontSize: 18),
                                       ),
-                                    ],
-                                  )
-                                ],
-                              ),
+                                    ),
+                                    const SizedBox(width: 16),
+                                    Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(guest.fullName, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16)),
+                                const SizedBox(height: 4),
+                                Wrap(
+                                  crossAxisAlignment: WrapCrossAlignment.center,
+                                  spacing: 8,
+                                  runSpacing: 4,
+                                  children: [
+                                    Container(
+                                      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                      decoration: BoxDecoration(
+                                        color: typeColor.withOpacity(0.1),
+                                        borderRadius: BorderRadius.circular(4),
+                                      ),
+                                      child: Text(guest.guestType, style: TextStyle(fontSize: 10, color: typeColor, fontWeight: FontWeight.bold)),
+                                    ),
+                                    if (guest.tableNumber != null) 
+                                      Text('• Bàn ${guest.tableNumber}', style: TextStyle(color: Colors.grey[600], fontSize: 13))
+                                    else
+                                      Text('• Chưa xếp bàn', style: TextStyle(color: Colors.grey[400], fontSize: 13, fontStyle: FontStyle.italic)),
+                                    if (guest.rsvpStatus == 'Attended')
+                                       Container(
+                                         padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                                         decoration: BoxDecoration(color: Colors.green[50], borderRadius: BorderRadius.circular(4), border: Border.all(color: Colors.green)),
+                                         child: const Text('Đã tham dự', style: TextStyle(fontSize: 10, color: Colors.green, fontWeight: FontWeight.bold)),
+                                       )
+                                  ],
+                                ),
+                                if (guest.phone != null && guest.phone!.isNotEmpty) ...[
+                                   const SizedBox(height: 4),
+                                   Row(
+                                     children: [
+                                       Icon(Icons.phone, size: 12, color: Colors.grey[500]),
+                                       const SizedBox(width: 4),
+                                       Text(guest.phone!, style: TextStyle(color: Colors.grey[600], fontSize: 12)),
+                                     ],
+                                   )
+                                ]
+                              ],
                             ),
                           ),
-                        );
-                      },
-                    );
-                  }),
-                ),
-        ),
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (guest.phone != null && guest.phone!.isNotEmpty)
+                                IconButton(
+                                  icon: const Icon(Icons.call, color: Colors.green),
+                                  onPressed: () => _makePhoneCall(guest.phone!),
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              IconButton(
+                                icon: const Icon(Icons.qr_code_2, color: Colors.blue),
+                                onPressed: () {
+                                    Navigator.push(context, MaterialPageRoute(builder: (_) => GuestQRScreen(guest: guest)));
+                                },
+                                tooltip: "Xem vé mời",
+                                visualDensity: VisualDensity.compact,
+                              ),
+                              IconButton(
+                                icon: Icon(Icons.delete_outline, color: Colors.red[300]),
+                                onPressed: () => _deleteGuest(guest.id),
+                                visualDensity: VisualDensity.compact,
+                              ),
+                            ],
+                          )
+                        ],
+                      ),
+                    ),
+                  ),
+                );
+              },
+            ),
+          );
+        }),
       ),
+    ),
+  ],
+),
+),
+),
       floatingActionButton: FloatingActionButton.extended(
         onPressed: _showAddGuestDialog,
         backgroundColor: Colors.pink[400],
@@ -362,6 +444,32 @@ class _GuestListScreenState extends State<GuestListScreen> with SingleTickerProv
           ),
         ],
       ),
+    );
+  }
+  Widget _buildFilterChip(String label) {
+    final isSelected = _filterStatus == label;
+    return ChoiceChip(
+      label: Text(label),
+      selected: isSelected,
+      onSelected: (selected) {
+        setState(() => _filterStatus = label);
+      },
+      selectedColor: Colors.pink[100],
+      labelStyle: TextStyle(
+        color: isSelected ? Colors.pink[800] : Colors.black87, 
+        fontWeight: isSelected ? FontWeight.bold : FontWeight.normal
+      ),
+      backgroundColor: Colors.grey[100],
+    );
+  }
+
+  Widget _buildStatItem(String label, String value, Color color) {
+    return Column(
+      children: [
+        Text(value, style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: color)),
+        const SizedBox(height: 4),
+        Text(label, style: TextStyle(fontSize: 12, color: Colors.grey[600])),
+      ],
     );
   }
 }

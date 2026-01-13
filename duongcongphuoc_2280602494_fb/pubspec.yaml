@@ -22,6 +22,8 @@ dependencies:
   file_picker: ^10.3.8
   url_launcher: ^6.2.5
   signalr_netcore: ^1.1.2
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^5.2.3
 
 dev_dependencies:
   flutter_test:

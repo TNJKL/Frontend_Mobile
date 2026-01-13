@@ -44,6 +44,11 @@ class _TaskFormScreenState extends State<TaskFormScreen> {
       _category = widget.task!.category;
       _priority = widget.task!.priority;
       _dueDate = widget.task!.dueDate;
+
+      // Validate Category: If the task's category is not in the list, add it to avoid Dropdown crash
+      if (!_categories.contains(_category)) {
+        _categories.add(_category);
+      }
     } else {
       _title = '';
     }

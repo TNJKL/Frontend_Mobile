@@ -23,6 +23,7 @@ import '../services/event_api_service.dart';
 import '../services/chat_service.dart';
 import 'chat_screen.dart';
 import 'admin_conversation_list_screen.dart';
+import 'guest_management/qr_scan_screen.dart';
 
 class MainScreen extends StatefulWidget {
   const MainScreen({super.key});
@@ -208,6 +209,12 @@ class _MainScreenState extends State<MainScreen> {
             IconButton(
               icon: const Icon(Icons.mark_chat_unread, color: Colors.pinkAccent), 
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const AdminConversationListScreen()))
+            ),
+          if (_userRole != 'User')
+            IconButton(
+              icon: const Icon(Icons.qr_code_scanner, color: Colors.blue), 
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => const QRScanScreen())),
+              tooltip: "Quét vé mời",
             ),
           IconButton(icon: const Icon(Icons.logout, color: Colors.black54), onPressed: () => _logout(context)),
         ],

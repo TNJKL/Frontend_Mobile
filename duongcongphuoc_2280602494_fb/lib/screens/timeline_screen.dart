@@ -546,7 +546,7 @@ class _TimelineScreenState extends State<TimelineScreen> {
                              Icon(_getIconForTitle(item.title), color: isApproved ? Colors.green[300] : Colors.orange[300], size: 20),
                              const SizedBox(width: 8),
                              Expanded(child: Text(item.title, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16))),
-                             if (_userRole == 'Admin' && !isApproved)
+                             if ((_userRole == 'Admin' || _userRole == 'Staff') && !isApproved)
                                InkWell(
                                  onTap: () => _approveTimeline(item),
                                  child: Container(

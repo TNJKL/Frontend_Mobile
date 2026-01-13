@@ -61,7 +61,8 @@ class _LoginScreenState extends State<LoginScreen> with SingleTickerProviderStat
 
   final GoogleSignIn _googleSignIn = GoogleSignIn(
     scopes: ['email'],
-    serverClientId: '558602254684-49j936b38qirvgho596n3m05a675judq.apps.googleusercontent.com',
+    //serverClientId: '558602254684-49j936b38qirvgho596n3m05a675judq.apps.googleusercontent.com',
+    serverClientId: '299592018613-rf44cmgf562gkrhhfkhopjmrkuep1en5.apps.googleusercontent.com',
   );
 
   void _showError(String message) {

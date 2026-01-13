@@ -66,4 +66,38 @@ class GuestApiService {
       throw Exception('Failed to import guests: $respStr');
     }
   }
+  Future<Guest> checkInGuest(int id) async {
+    // 1. Fetch current guest info
+    try {
+      final getResponse = await http.get(Uri.parse('$baseUrl/$id')).timeout(const Duration(seconds: 10));
+      if (getResponse.statusCode == 200) {
+        final guest = Guest.fromJson(json.decode(getResponse.body));
+        
+        // 2. Update status to 'Attended'
+        final updatedGuest = Guest(
+          id: guest.id,
+          eventId: guest.eventId,
+          fullName: guest.fullName,
+          email: guest.email,
+          phone: guest.phone,
+          guestType: guest.guestType,
+          rsvpStatus: 'Attended', // Mark as Attended
+          plusOneCount: guest.plusOneCount,
+          tableNumber: guest.tableNumber,
+          dietaryRequirements: guest.dietaryRequirements,
+          notes: guest.notes,
+          giftReceived: guest.giftReceived,
+          giftDescription: guest.giftDescription
+        );
+
+        // 3. Send update
+        await updateGuest(updatedGuest);
+        return updatedGuest;
+      } else {
+        throw Exception('Guest not found');
+      }
+    } catch(e) {
+      throw Exception('Check-in failed: $e');
+    }
+  }
 }
