@@ -237,29 +237,7 @@ class _RegistrationScreenState extends State<RegistrationScreen> with SingleTick
                               ),
                              const SizedBox(height: 16),
 
-                            Row(
-                              children: [
-                                Expanded(child: _buildTextField(_initialsController, 'Tên viết tắt (VD: TD)', Icons.badge_outlined)),
-                                const SizedBox(width: 16),
-                                Expanded(
-                                  child: DropdownButtonFormField<String>(
-                                    value: _selectedRole,
-                                    decoration: InputDecoration(
-                                      labelText: 'Vai trò',
-                                      prefixIcon: Icon(Icons.admin_panel_settings_outlined, color: Colors.pink[300]),
-                                      filled: true,
-                                      fillColor: Colors.white,
-                                      enabledBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.grey[200]!)),
-                                      focusedBorder: OutlineInputBorder(borderRadius: BorderRadius.circular(16), borderSide: BorderSide(color: Colors.pink[300]!)),
-                                    ),
-                                    items: _roles.map((role) {
-                                      return DropdownMenuItem<String>(value: role, child: Text(role));
-                                    }).toList(),
-                                    onChanged: (value) => setState(() => _selectedRole = value!),
-                                  ),
-                                ),
-                              ],
-                            ),
+                            _buildTextField(_initialsController, 'Tên viết tắt (VD: TD)', Icons.badge_outlined),
                           ],
                         ),
                       ),
